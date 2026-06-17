@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compras Itajaí — Busca de MP e Montagem de Pedido</title>
+
+  <!-- Fontes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Ícones Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- ExcelJS — gera .xlsx estilizado (faixa amarela + grade) igual ao template.
+       Com fallback automático pra CSV se estiver offline. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+
+  <!-- Banco de dados gerado (window.SKUS) -->
+  <script src="data/skus.js?v=33c0b17f"></script>
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__mark" aria-hidden="true"><i data-lucide="package-search"></i></span>
+      <div>
+        <h1 class="topbar__title">Compras Itajaí</h1>
+        <p class="topbar__sub">Busca de matéria-prima e montagem de pedido</p>
+      </div>
+    </div>
+    <p class="topbar__count" id="dbCount" aria-live="polite"></p>
+  </header>
+
+  <main class="layout">
+    <!-- COLUNA ESQUERDA: BUSCA -->
+    <section class="panel" aria-labelledby="buscaTitulo">
+      <div class="panel__head">
+        <i data-lucide="search" aria-hidden="true"></i>
+        <h2 id="buscaTitulo">Buscar matéria-prima</h2>
+      </div>
+
+      <label class="field">
+        <span class="field__label">Pesquisa por palavras-chave</span>
+        <div class="searchbox">
+          <i data-lucide="search" class="searchbox__icon" aria-hidden="true"></i>
+          <input
+            type="text"
+            id="searchInput"
+            class="searchbox__input"
+            placeholder="ex.: anis preto 16  ou  5000412"
+            autocomplete="off"
+            spellcheck="false"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="results"
+            aria-autocomplete="list" />
+          <button type="button" id="clearSearch" class="searchbox__clear" aria-label="Limpar busca" hidden>
+            <i data-lucide="x" aria-hidden="true"></i>
+          </button>
+        </div>
+        <span class="field__hint">Busque por palavras-chave (ordem livre) ou pelo código SKU.</span>
+      </label>
+
+      <ul class="results" id="results" role="listbox" aria-label="Resultados da busca"></ul>
+    </section>
+
+    <!-- COLUNA DIREITA: PEDIDO -->
+    <section class="panel" aria-labelledby="pedidoTitulo">
+      <div class="panel__head">
+        <i data-lucide="clipboard-list" aria-hidden="true"></i>
+        <h2 id="pedidoTitulo">Pedido</h2>
+      </div>
+
+      <div class="orderhead">
+        <label class="field">
+          <span class="field__label">N° Pedido</span>
+          <input type="text" id="numPedido" class="input" placeholder="ex.: 12345" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="field__label">Cliente</span>
+          <input type="text" id="cliente" class="input" placeholder="Nome do cliente" autocomplete="off" />
+        </label>
+      </div>
+
+      <!-- Item selecionado / em edição -->
+      <div class="selected" id="selectedCard" hidden>
+        <div class="selected__title">
+          <i data-lucide="box" aria-hidden="true"></i>
+          <span>Item selecionado</span>
+        </div>
+        <dl class="selected__grid">
+          <div>
+            <dt>Artigo</dt>
+            <dd id="selArtigo">—</dd>
+          </div>
+          <div>
+            <dt>SKU</dt>
+            <dd class="mono" id="selSku">—</dd>
+          </div>
+          <div>
+            <dt>Un. Med.</dt>
+            <dd id="selUnid">—</dd>
+          </div>
+        </dl>
+        <div class="selected__fields">
+          <label class="field">
+            <span class="field__label">Cor / Tamanho</span>
+            <input type="text" id="corTamanho" class="input" placeholder="ex.: PRETO / M" autocomplete="off" />
+          </label>
+          <label class="field field--qtd">
+            <span class="field__label">Quantidade</span>
+            <input type="text" id="quantidade" class="input mono" inputmode="decimal" placeholder="0" autocomplete="off" />
+          </label>
+        </div>
+        <div class="selected__actions">
+          <button type="button" id="cancelSel" class="btn btn--ghost">
+            <i data-lucide="x" aria-hidden="true"></i> Cancelar
+          </button>
+          <button type="button" id="addItem" class="btn btn--primary">
+            <i data-lucide="plus" aria-hidden="true"></i> Adicionar ao pedido
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabela do pedido -->
+      <div class="order">
+        <div class="order__bar">
+          <span class="order__cliente" id="orderClienteLabel">CLIENTE</span>
+        </div>
+        <div class="order__scroll">
+          <table class="order__table" id="orderTable">
+            <thead>
+              <tr>
+                <th>N° PEDIDO</th>
+                <th>ARTIGO</th>
+                <th>SKU</th>
+                <th>COR/TAMANHO</th>
+                <th>UN. MED.</th>
+                <th>QUANTIDADE</th>
+                <th aria-label="Ações"></th>
+              </tr>
+            </thead>
+            <tbody id="orderBody"></tbody>
+          </table>
+        </div>
+        <p class="order__empty" id="orderEmpty">
+          <i data-lucide="inbox" aria-hidden="true"></i>
+          Nenhum item no pedido ainda. Busque uma MP e adicione.
+        </p>
+      </div>
+
+      <div class="order__footer">
+        <span class="order__total" id="orderTotal">0 itens</span>
+        <div class="order__exports">
+          <button type="button" id="exportCsv" class="btn btn--dark" disabled>
+            <i data-lucide="file-down" aria-hidden="true"></i> Exportar CSV
+          </button>
+          <button type="button" id="exportXlsx" class="btn btn--dark" disabled>
+            <i data-lucide="file-spreadsheet" aria-hidden="true"></i> Exportar Excel
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

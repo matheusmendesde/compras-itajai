@@ -1,0 +1,17 @@
+# Dependências (não usamos, mas por garantia)
+node_modules/
+
+# CSV bruto do ERP — pode conter dados grandes/voláteis.
+# O que o time usa é o data/skus.js gerado (esse é commitado).
+data/sku-mp.csv
+data/SKU DAS MP.csv
+data/SKU_DAS_MP.csv
+data/*.CSV
+
+# Lixo de SO / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.vscode/
+.idea/
