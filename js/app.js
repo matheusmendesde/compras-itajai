@@ -65,7 +65,7 @@
     'VIOLETA','AMARELO','LARANJA','VERDE','AZUL','CINZA','CHUMBO','GRAFITE','GRAFITO','MESCLA',
     'BORDO','VINHO','CORAL','CASTANHO','CHOCOLATE','MARROM','BEGE','NUDE','DOURADO','OURO','PRATA',
     'NIQUEL','COBRE','BRONZE','GRIS','ACO','CRU','MARFIM','PEROLA','PERLA','TABACO','CANELA',
-    'COCOA','COURO','CAQUI','TERRACOTA','TERRA','BANDANA','MAGENTA','BERINJELA','MOCASSIN',
+    'COCOA','COURO','CAQUI','TERRACOTA','TERRA','BANDANA', 'MATILDE','MAGENTA','BERINJELA','MOCASSIN',
     'SIDERAL','ABSOLUTO','DIVINO','TAME','STELLA','NOBILE','NUAGE','FANTASTICO','ROMANCE',
     'FRUTILLY','JAIPUR','CAMARO','PAVAO','SATIN','MAKE','MELAO','ATOL','VEGAS','LUVITA',
     'ODALISCA','SANREMO','SANDIA','AZULEJO','HERANCA','LICHIA','CHRONOS','TEOS','CORINGA',
@@ -75,7 +75,7 @@
     'JABUTICABA','MANACA','CACAU','CEREJA','CABERNET','SCARLET','MALBEC','PIMENTA','URUCUM',
     'NAVY','ROYAL','BISTRO','ELITE','PETROLEO','MOSTARDA','SALMAO','GOIABA','TANGERINA',
     'GUACAMOLE','MENTOL','MUSGO','OCEAN','RUNNER','PRECIOSA','ENERGIA','BLUSH','MERGE',
-    'MIRTILO','ZARAK','VALENTINO','NAOMI','JADORE','MISTIQUE','SUNKISSES','MAGENTA'
+    'MIRTILO','ZARAK','VALENTINO','NAOMI','JADORE','MISTIQUE','SUNKISSES','MAGENTA','MALIBU'
   ];
   // Pré-ordena: mais palavras primeiro, depois mais longo (compostas ganham).
   var CORES_NORM = CORES.map(function (c) { return normalizar(c); })
@@ -228,7 +228,15 @@
   var resultadosAtuais = [];
   var indiceAtivo = -1;
   var selecionado = null;     // item escolhido na busca
-  var pedido = [];            // linhas adicionadas
+  // Vários clientes; cada um vira uma aba no Excel. "ativo" = card visível na tela.
+  var clientes = [{ nome: '', numPedido: '', itens: [] }];
+  var ativo = 0;
+  function atual() { return clientes[ativo]; }
+  function totalItens() {
+    var n = 0;
+    for (var i = 0; i < clientes.length; i++) n += clientes[i].itens.length;
+    return n;
+  }
 
   // ===================== Elementos =====================
   var $ = function (id) { return document.getElementById(id); };
@@ -255,7 +263,25 @@
   var orderTotal = $('orderTotal');
   var exportCsv = $('exportCsv');
   var exportXlsx = $('exportXlsx');
+  var importPedido = $('importPedido');
+  var importFile = $('importFile');
   var toast = $('toast');
+
+  // Pager de clientes
+  var prevCliente = $('prevCliente');
+  var nextCliente = $('nextCliente');
+  var novoCliente = $('novoCliente');
+  var removerCliente = $('removerCliente');
+  var pagerCount = $('pagerCount');
+  var pagerName = $('pagerName');
+  var orderCard = $('orderCard');
+
+  // Modal de confirmação
+  var modal = $('modal');
+  var modalTitle = $('modalTitle');
+  var modalMsg = $('modalMsg');
+  var modalOk = $('modalOk');
+  var modalCancel = $('modalCancel');
 
   // ===================== Ícones =====================
   function renderIcons() {
@@ -392,7 +418,7 @@
       quantidade.focus();
       return;
     }
-    pedido.push({
+    atual().itens.push({
       sku: selecionado.sku,
       artigo: selecionado.mp,
       unid: rotuloUnidade(selecionado.unid),
@@ -408,32 +434,55 @@
 
   // ===================== Tabela do pedido =====================
   cliente.addEventListener('input', function () {
+    atual().nome = cliente.value;
     var v = cliente.value.trim();
     orderClienteLabel.textContent = v ? v.toUpperCase() : 'CLIENTE';
+    atualizarPagerNome();
   });
 
   function renderPedido(destacarUltima) {
     orderBody.innerHTML = '';
-    var temItens = pedido.length > 0;
+    var itens = atual().itens;
+    var temItens = itens.length > 0;
     orderEmpty.hidden = temItens;
     orderTable.style.display = temItens ? '' : 'none';
-    exportCsv.disabled = !temItens;
-    exportXlsx.disabled = !temItens;
-    orderTotal.textContent = pedido.length + (pedido.length === 1 ? ' item' : ' itens');
+    exportCsv.disabled = !temItens;            // CSV = cliente ativo
+    exportXlsx.disabled = totalItens() === 0;  // Excel = todos os clientes
+    orderTotal.textContent = itens.length + (itens.length === 1 ? ' item' : ' itens');
 
-    var nped = numPedido.value.trim();
+    var nped = (atual().numPedido || '').trim();
 
-    pedido.forEach(function (linha, idx) {
+    itens.forEach(function (linha, idx) {
       var tr = document.createElement('tr');
-      if (destacarUltima && idx === pedido.length - 1) tr.className = 'order__row--new';
+      if (destacarUltima && idx === itens.length - 1) tr.className = 'order__row--new';
       tr.innerHTML =
         '<td class="mono">' + escapeHtml(nped) + '</td>' +
         '<td class="col-artigo">' + escapeHtml(linha.artigo) + '</td>' +
         '<td class="mono">' + escapeHtml(linha.sku) + '</td>' +
-        '<td>' + escapeHtml(linha.cor) + '</td>' +
+        '<td class="cell-cor"></td>' +
         '<td>' + escapeHtml(linha.unid) + '</td>' +
-        '<td class="mono">' + escapeHtml(linha.qtd) + '</td>' +
+        '<td class="cell-qtd"></td>' +
         '<td></td>';
+
+      // COR/TAMANHO editável (atualiza o modelo sem re-render, pra não perder o foco)
+      var inCor = document.createElement('input');
+      inCor.type = 'text';
+      inCor.className = 'cell-input';
+      inCor.value = linha.cor;
+      inCor.setAttribute('aria-label', 'Cor/Tamanho');
+      inCor.addEventListener('input', function () { atual().itens[idx].cor = inCor.value; });
+      tr.querySelector('.cell-cor').appendChild(inCor);
+
+      // QUANTIDADE editável
+      var inQtd = document.createElement('input');
+      inQtd.type = 'text';
+      inQtd.className = 'cell-input mono';
+      inQtd.value = linha.qtd;
+      inQtd.setAttribute('inputmode', 'decimal');
+      inQtd.setAttribute('aria-label', 'Quantidade');
+      inQtd.addEventListener('input', function () { atual().itens[idx].qtd = inQtd.value; });
+      tr.querySelector('.cell-qtd').appendChild(inQtd);
+
       var tdAcao = tr.lastElementChild;
       var btn = document.createElement('button');
       btn.className = 'rowdel';
@@ -442,7 +491,7 @@
       btn.setAttribute('aria-label', 'Remover item');
       btn.innerHTML = '<i data-lucide="trash-2"></i>';
       btn.addEventListener('click', function () {
-        pedido.splice(idx, 1);
+        atual().itens.splice(idx, 1);
         renderPedido(false);
       });
       tdAcao.appendChild(btn);
@@ -453,25 +502,107 @@
 
   // Reescrever a coluna N° PEDIDO ao alterar o campo
   numPedido.addEventListener('input', function () {
-    if (pedido.length) renderPedido(false);
+    atual().numPedido = numPedido.value;
+    if (atual().itens.length) renderPedido(false);
   });
+
+  // ===================== Navegação entre clientes (pager) =====================
+  function atualizarPagerNome() {
+    var nome = (atual().nome || '').trim();
+    pagerName.textContent = nome ? nome.toUpperCase() : 'Sem nome';
+    pagerName.classList.toggle('is-empty', !nome);
+  }
+  function renderPager() {
+    pagerCount.textContent = 'Cliente ' + (ativo + 1) + ' de ' + clientes.length;
+    atualizarPagerNome();
+    prevCliente.disabled = ativo <= 0;
+    nextCliente.disabled = ativo >= clientes.length - 1;
+    removerCliente.disabled = clientes.length <= 1 && !atual().itens.length &&
+      !(atual().nome || '').trim() && !(atual().numPedido || '').trim();
+  }
+  function irPara(i, dir) {
+    if (i < 0 || i >= clientes.length) return;
+    ativo = i;
+    cliente.value = atual().nome || '';
+    numPedido.value = atual().numPedido || '';
+    var v = (atual().nome || '').trim();
+    orderClienteLabel.textContent = v ? v.toUpperCase() : 'CLIENTE';
+    selecionado = null;
+    selectedCard.hidden = true;
+    renderPedido(false);
+    renderPager();
+    if (dir && orderCard) {
+      var cls = dir < 0 ? 'anim-prev' : 'anim-next';
+      orderCard.classList.remove('anim-prev', 'anim-next');
+      void orderCard.offsetWidth; // reinicia a animação
+      orderCard.classList.add(cls);
+    }
+  }
+  function novoClienteFn() {
+    clientes.push({ nome: '', numPedido: '', itens: [] });
+    irPara(clientes.length - 1, 1);
+    cliente.focus();
+  }
+  function removerClienteAgora() {
+    clientes.splice(ativo, 1);
+    if (!clientes.length) clientes.push({ nome: '', numPedido: '', itens: [] });
+    if (ativo >= clientes.length) ativo = clientes.length - 1;
+    irPara(ativo, 0);
+    mostrarToast('Cliente removido.', 'ok');
+  }
+  function removerClienteFn() {
+    var qtd = atual().itens.length;
+    if (!qtd) { removerClienteAgora(); return; }
+    var quem = (atual().nome || '').trim() || 'sem nome';
+    abrirModal({
+      titulo: 'Remover cliente',
+      mensagem: 'Remover "' + quem + '" e os ' + qtd + ' item(ns) dele? Não dá pra desfazer.',
+      confirmar: 'Remover',
+      cancelar: 'Cancelar',
+      perigo: true
+    }).then(function (ok) { if (ok) removerClienteAgora(); });
+  }
+  prevCliente.addEventListener('click', function () { irPara(ativo - 1, -1); });
+  nextCliente.addEventListener('click', function () { irPara(ativo + 1, 1); });
+  novoCliente.addEventListener('click', novoClienteFn);
+  removerCliente.addEventListener('click', removerClienteFn);
+
+  // Gesto de arrastar (swipe) pra trocar de cliente
+  (function (el) {
+    if (!el) return;
+    var x0 = null, y0 = null;
+    el.addEventListener('touchstart', function (e) {
+      var t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY;
+    }, { passive: true });
+    el.addEventListener('touchend', function (e) {
+      if (x0 === null) return;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx < 0) irPara(ativo + 1, 1); else irPara(ativo - 1, -1);
+      }
+    }, { passive: true });
+  })(orderCard);
 
   // ===================== Exportação =====================
   var COLS = ['N° PEDIDO', 'ARTIGO', 'SKU', 'COR/TAMANHO', 'UN. MED.', 'QUANTIDADE'];
 
-  function linhasMatriz() {
-    var nped = numPedido.value.trim();
-    return pedido.map(function (l) {
+  function linhasMatriz(cli) {
+    cli = cli || atual();
+    var nped = (cli.numPedido || '').trim();
+    return cli.itens.map(function (l) {
       return [nped, l.artigo, l.sku, l.cor, l.unid, l.qtd];
     });
   }
 
-  function nomeArquivo(ext) {
-    var nped = numPedido.value.trim().replace(/[^\w.-]+/g, '_');
-    var cli = cliente.value.trim().replace(/[^\w.-]+/g, '_');
+  function nomeArquivo(ext, cli) {
+    cli = cli || atual();
+    var nped = (cli.numPedido || '').trim().replace(/[^\w.-]+/g, '_');
+    var nome = (cli.nome || '').trim().replace(/[^\w.-]+/g, '_');
     var partes = ['pedido'];
     if (nped) partes.push(nped);
-    if (cli) partes.push(cli);
+    if (nome) partes.push(nome);
     return partes.join('-') + '.' + ext;
   }
 
@@ -493,19 +624,20 @@
     return s;
   }
   function exportarCsv() {
-    if (!pedido.length) return;
+    var cli = atual(); // CSV não tem abas: exporta só o cliente ativo
+    if (!cli.itens.length) { mostrarToast('Este cliente não tem itens.', 'warn'); return; }
     var linhas = [];
-    var cli = cliente.value.trim();
+    var nome = (cli.nome || '').trim();
     // Faixa do topo = só o nome do cliente (igual ao template)
-    linhas.push(campoCsv(cli ? cli.toUpperCase() : 'CLIENTE'));
+    linhas.push(campoCsv(nome ? nome.toUpperCase() : 'CLIENTE'));
     linhas.push(COLS.map(campoCsv).join(';'));
-    linhasMatriz().forEach(function (row) {
+    linhasMatriz(cli).forEach(function (row) {
       linhas.push(row.map(campoCsv).join(';'));
     });
     var conteudo = '﻿' + linhas.join('\r\n');
     var blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
-    baixar(blob, nomeArquivo('csv'));
-    mostrarToast('CSV exportado.', 'ok');
+    baixar(blob, nomeArquivo('csv', cli));
+    mostrarToast('CSV exportado (cliente ativo).', 'ok');
   }
 
   // Nome da aba (planilha) = nome do cliente. Excel: máx 31 chars, sem * ? : \ / [ ]
@@ -517,50 +649,42 @@
     if (!s) s = 'PEDIDO';
     return s.slice(0, 31);
   }
+  // Garante nome de aba único (Excel não aceita abas repetidas): NOME, NOME (2)...
+  function nomeAbaUnico(nome, usados) {
+    var base = nomeAba(nome), n = base, i = 2;
+    while (usados[n]) { n = base.slice(0, 26) + ' (' + i + ')'; i++; }
+    usados[n] = true;
+    return n;
+  }
 
-  // ----- XLSX via ExcelJS: replica o template (faixa amarela + grade) -----
-  function exportarXlsx() {
-    if (!pedido.length) return;
-    if (typeof window.ExcelJS === 'undefined') {
-      mostrarToast('Excel indisponível (offline). Exportando CSV.', 'warn');
-      exportarCsv();
-      return;
-    }
-    var cli = cliente.value.trim();
-    var tituloCliente = cli ? cli.toUpperCase() : 'CLIENTE';
-    var dados = linhasMatriz();
-
-    var wb = new window.ExcelJS.Workbook();
-    var ws = wb.addWorksheet(nomeAba(cli));
+  // Monta UMA aba (faixa amarela + cabeçalho + grade) pra um cliente.
+  function montarAba(ws, cli) {
+    var nome = (cli.nome || '').trim();
+    var titulo = nome ? nome.toUpperCase() : 'CLIENTE';
+    var dados = linhasMatriz(cli);
 
     ws.columns = [
       { width: 12 }, { width: 46 }, { width: 12 },
       { width: 20 }, { width: 12 }, { width: 13 }
     ];
-
-    // Linha 1: faixa amarela mesclada (A1:F1) só com o nome do cliente
     ws.mergeCells('A1:F1');
     var bar = ws.getCell('A1');
-    bar.value = tituloCliente;
+    bar.value = titulo;
     bar.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
     bar.alignment = { horizontal: 'center', vertical: 'middle' };
     bar.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
     ws.getRow(1).height = 22;
 
-    // Linha 2: cabeçalho em negrito
     var head = ws.getRow(2);
     head.values = COLS.slice();
     head.font = { bold: true };
     head.alignment = { vertical: 'middle' };
 
-    // Linhas de dados (a partir da linha 3)
     dados.forEach(function (r) { ws.addRow(r); });
 
-    // Completa com linhas vazias pra lembrar a "grade" do template
     var MIN_LINHAS = 24;
     for (var i = dados.length; i < MIN_LINHAS; i++) ws.addRow(['', '', '', '', '', '']);
 
-    // Bordas finas em toda a grade
     var ultima = 2 + Math.max(dados.length, MIN_LINHAS);
     var fina = { style: 'thin', color: { argb: 'FF000000' } };
     for (var r = 1; r <= ultima; r++) {
@@ -568,19 +692,37 @@
         ws.getCell(r, c).border = { top: fina, left: fina, bottom: fina, right: fina };
       }
     }
-
-    // Lista suspensa em UN. MED. (coluna E), igual à legenda do template
     var opcoes = '"unidades,metros,kg,pares,peças,rolos,km,m²,ml"';
     for (var r2 = 3; r2 <= ultima; r2++) {
       ws.getCell(r2, 5).dataValidation = { type: 'list', allowBlank: true, formulae: [opcoes] };
     }
+  }
+
+  // ----- XLSX via ExcelJS: um arquivo, UMA ABA por cliente (com itens) -----
+  function exportarXlsx() {
+    var comItens = clientes.filter(function (c) { return c.itens.length; });
+    if (!comItens.length) { mostrarToast('Nenhum item pra exportar.', 'warn'); return; }
+    if (typeof window.ExcelJS === 'undefined') {
+      mostrarToast('Excel indisponível (offline). Exportando CSV.', 'warn');
+      exportarCsv();
+      return;
+    }
+    var wb = new window.ExcelJS.Workbook();
+    var usados = {};
+    comItens.forEach(function (cli) {
+      var ws = wb.addWorksheet(nomeAbaUnico(cli.nome, usados));
+      montarAba(ws, cli);
+    });
+    var nomeF = comItens.length === 1 ? nomeArquivo('xlsx', comItens[0]) : 'pedidos.xlsx';
 
     wb.xlsx.writeBuffer().then(function (buf) {
       baixar(
         new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-        nomeArquivo('xlsx')
+        nomeF
       );
-      mostrarToast('Excel exportado.', 'ok');
+      mostrarToast(comItens.length > 1
+        ? (comItens.length + ' clientes exportados em abas.')
+        : 'Excel exportado.', 'ok');
     }).catch(function () {
       mostrarToast('Falha no Excel. Exportando CSV.', 'warn');
       exportarCsv();
@@ -589,6 +731,160 @@
 
   exportCsv.addEventListener('click', exportarCsv);
   exportXlsx.addEventListener('click', exportarXlsx);
+
+  // ===================== Importar pedido (CSV/XLSX) =====================
+  function limpa(v) { return v == null ? '' : String(v).trim(); }
+
+  // CSV -> matriz (array de linhas). Trata BOM, aspas ("" escapa), ; e \r\n/\n.
+  function parseCsvText(text) {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // remove BOM
+    var rows = [], row = [], campo = '', aspas = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (aspas) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { campo += '"'; i++; }
+          else aspas = false;
+        } else campo += ch;
+      } else {
+        if (ch === '"') aspas = true;
+        else if (ch === ';') { row.push(campo); campo = ''; }
+        else if (ch === '\n') { row.push(campo); rows.push(row); row = []; campo = ''; }
+        else if (ch === '\r') { /* ignora; quebra acontece no \n */ }
+        else campo += ch;
+      }
+    }
+    if (campo !== '' || row.length) { row.push(campo); rows.push(row); }
+    return rows;
+  }
+
+  // Valor de célula do ExcelJS -> texto (cobre string, número, rich text e fórmula).
+  function celulaTexto(v) {
+    if (v == null) return '';
+    if (typeof v === 'object') {
+      if (v.richText) return v.richText.map(function (t) { return t.text; }).join('');
+      if (v.text != null) return String(v.text);
+      if (v.result != null) return String(v.result);
+      return '';
+    }
+    return String(v);
+  }
+
+  // Matriz -> { cliente, numPedido, linhas[] }. Acha o cabeçalho pelo COLS.
+  function matrizParaPedido(matriz) {
+    var alvo = COLS.map(function (c) { return normalizar(c); }).join('|');
+    var hi = -1;
+    for (var i = 0; i < matriz.length; i++) {
+      var linha = matriz[i] || [];
+      var chave = [];
+      for (var c = 0; c < COLS.length; c++) chave.push(normalizar(linha[c] == null ? '' : linha[c]));
+      if (chave.join('|') === alvo) { hi = i; break; }
+    }
+    if (hi === -1) return null; // não é um pedido reconhecível
+
+    // Cliente: primeira célula não-vazia acima do cabeçalho (a faixa do topo)
+    var cli = '';
+    for (var k = 0; k < hi; k++) {
+      var c0 = matriz[k] && matriz[k][0] != null ? String(matriz[k][0]).trim() : '';
+      if (c0) { cli = c0; break; }
+    }
+    if (normalizar(cli) === 'CLIENTE') cli = ''; // rótulo padrão, não é nome real
+
+    var linhas = [], nped = '';
+    for (var r = hi + 1; r < matriz.length; r++) {
+      var L = matriz[r] || [];
+      var np = limpa(L[0]), artigo = limpa(L[1]), sku = limpa(L[2]);
+      var cor = limpa(L[3]), unid = limpa(L[4]), qtd = limpa(L[5]);
+      if (!artigo && !sku && !qtd) continue; // pula linhas vazias / preenchimento
+      if (!nped && np) nped = np;
+      linhas.push({ sku: sku, artigo: artigo, unid: unid, cor: cor, qtd: qtd });
+    }
+    return { cliente: cli, numPedido: nped, linhas: linhas };
+  }
+
+  // Substitui TODOS os clientes da tela pela lista importada (com confirmação).
+  function aplicarClientes(lista) {
+    lista = (lista || []).filter(function (c) { return c.itens && c.itens.length; });
+    if (!lista.length) {
+      mostrarToast('Não encontrei itens no arquivo. Use um pedido exportado aqui.', 'warn');
+      return;
+    }
+    var nc = lista.length;
+    var aplicar = function () {
+      clientes = lista;
+      ativo = 0;
+      irPara(0, 0);
+      mostrarToast(nc > 1
+        ? (nc + ' clientes importados.')
+        : (lista[0].itens.length + ' item(ns) importado(s).'), 'ok');
+    };
+    if (totalItens()) {
+      abrirModal({
+        titulo: 'Substituir o que está na tela?',
+        mensagem: 'Importar vai substituir tudo que está aberto (' + totalItens() +
+          ' item(ns) em ' + clientes.length + ' cliente(s)) pelo conteúdo do arquivo.',
+        confirmar: 'Substituir',
+        cancelar: 'Cancelar',
+        perigo: true
+      }).then(function (ok) { if (ok) aplicar(); });
+    } else {
+      aplicar();
+    }
+  }
+
+  function importarArquivo(file) {
+    var nome = (file.name || '').toLowerCase();
+    if (nome.slice(-4) === '.csv') {
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          var d = matrizParaPedido(parseCsvText(String(fr.result)));
+          if (!d) { mostrarToast('Arquivo não reconhecido.', 'warn'); return; }
+          aplicarClientes([{ nome: d.cliente, numPedido: d.numPedido, itens: d.linhas }]);
+        } catch (e) { mostrarToast('Falha ao ler o CSV.', 'warn'); }
+      };
+      fr.onerror = function () { mostrarToast('Não consegui abrir o arquivo.', 'warn'); };
+      fr.readAsText(file); // CSV exportado é UTF-8
+    } else if (nome.slice(-5) === '.xlsx') {
+      if (typeof window.ExcelJS === 'undefined') {
+        mostrarToast('Leitor de Excel indisponível (offline). Importe o CSV.', 'warn');
+        return;
+      }
+      var fr2 = new FileReader();
+      fr2.onload = function () {
+        var wb = new window.ExcelJS.Workbook();
+        wb.xlsx.load(fr2.result).then(function () {
+          var lista = [];
+          // Cada aba = um cliente
+          wb.worksheets.forEach(function (ws) {
+            var matriz = [];
+            ws.eachRow({ includeEmpty: true }, function (rowObj) {
+              var arr = [];
+              for (var c = 1; c <= 6; c++) arr.push(celulaTexto(rowObj.getCell(c).value));
+              matriz.push(arr);
+            });
+            var d = matrizParaPedido(matriz);
+            if (d && d.linhas.length) {
+              lista.push({ nome: d.cliente || ws.name, numPedido: d.numPedido, itens: d.linhas });
+            }
+          });
+          if (!lista.length) { mostrarToast('Não encontrei pedidos no arquivo.', 'warn'); return; }
+          aplicarClientes(lista);
+        }).catch(function () { mostrarToast('Falha ao ler o Excel.', 'warn'); });
+      };
+      fr2.onerror = function () { mostrarToast('Não consegui abrir o arquivo.', 'warn'); };
+      fr2.readAsArrayBuffer(file);
+    } else {
+      mostrarToast('Formato não suportado. Use CSV ou XLSX.', 'warn');
+    }
+  }
+
+  importPedido.addEventListener('click', function () { importFile.click(); });
+  importFile.addEventListener('change', function () {
+    var f = importFile.files && importFile.files[0];
+    if (f) importarArquivo(f);
+    importFile.value = ''; // permite reimportar o mesmo arquivo
+  });
 
   // ===================== Toast =====================
   var toastTimer = null;
@@ -602,8 +898,51 @@
     toastTimer = setTimeout(function () { toast.hidden = true; }, 2600);
   }
 
+  // ===================== Modal de confirmação =====================
+  // Substitui o window.confirm() por um diálogo no tema do app. Retorna Promise<bool>.
+  var modalResolver = null;
+  var modalPrevFoco = null;
+
+  function abrirModal(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      modalResolver = resolve;
+      modalTitle.textContent = opts.titulo || 'Confirmar';
+      modalMsg.textContent = opts.mensagem || '';
+      modalOk.textContent = opts.confirmar || 'Confirmar';
+      modalCancel.textContent = opts.cancelar || 'Cancelar';
+      modalOk.className = 'btn ' + (opts.perigo ? 'btn--danger' : 'btn--primary');
+      modalPrevFoco = document.activeElement;
+      modal.hidden = false;
+      setTimeout(function () { modalOk.focus(); }, 0);
+    });
+  }
+  function fecharModal(val) {
+    if (modal.hidden) return;
+    modal.hidden = true;
+    var r = modalResolver;
+    modalResolver = null;
+    if (modalPrevFoco && modalPrevFoco.focus) { try { modalPrevFoco.focus(); } catch (e) {} }
+    if (r) r(val);
+  }
+  modalOk.addEventListener('click', function () { fecharModal(true); });
+  modalCancel.addEventListener('click', function () { fecharModal(false); });
+  modal.addEventListener('click', function (e) {
+    if (e.target && e.target.getAttribute('data-close')) fecharModal(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (modal.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); fecharModal(false); }
+    else if (e.key === 'Enter') { e.preventDefault(); fecharModal(true); }
+    else if (e.key === 'Tab') { // trap simples entre Cancelar e OK
+      e.preventDefault();
+      (document.activeElement === modalOk ? modalCancel : modalOk).focus();
+    }
+  });
+
   // ===================== Init =====================
   renderPedido(false);
+  renderPager();
   renderIcons();
   searchInput.focus();
 })();

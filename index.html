@@ -20,7 +20,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 
   <!-- Banco de dados gerado (window.SKUS) -->
-  <script src="data/skus.js?v=33c0b17f"></script>
+  <script src="data/skus.js?v=5b24fbfb"></script>
 
   <link rel="stylesheet" href="css/styles.css" />
 </head>
@@ -76,6 +76,29 @@
         <h2 id="pedidoTitulo">Pedido</h2>
       </div>
 
+      <!-- Navegação entre clientes (cada cliente = uma aba no Excel) -->
+      <div class="pager" id="pager">
+        <button type="button" class="pager__nav" id="prevCliente" aria-label="Cliente anterior">
+          <i data-lucide="chevron-left" aria-hidden="true"></i>
+        </button>
+        <div class="pager__info">
+          <span class="pager__count" id="pagerCount">Cliente 1 de 1</span>
+          <span class="pager__name" id="pagerName">Sem nome</span>
+        </div>
+        <button type="button" class="pager__nav" id="nextCliente" aria-label="Próximo cliente">
+          <i data-lucide="chevron-right" aria-hidden="true"></i>
+        </button>
+        <span class="pager__sep" aria-hidden="true"></span>
+        <button type="button" class="btn btn--ghost" id="novoCliente">
+          <i data-lucide="user-plus" aria-hidden="true"></i> Novo cliente
+        </button>
+        <button type="button" class="rowdel pager__del" id="removerCliente"
+                title="Remover cliente" aria-label="Remover cliente">
+          <i data-lucide="trash-2" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="ordercard" id="orderCard">
       <div class="orderhead">
         <label class="field">
           <span class="field__label">N° Pedido</span>
@@ -153,9 +176,16 @@
           Nenhum item no pedido ainda. Busque uma MP e adicione.
         </p>
       </div>
+      </div><!-- /#orderCard -->
 
       <div class="order__footer">
-        <span class="order__total" id="orderTotal">0 itens</span>
+        <div class="order__footleft">
+          <span class="order__total" id="orderTotal">0 itens</span>
+          <button type="button" id="importPedido" class="btn btn--ghost">
+            <i data-lucide="file-up" aria-hidden="true"></i> Importar pedido
+          </button>
+          <input type="file" id="importFile" accept=".csv,.xlsx" hidden />
+        </div>
         <div class="order__exports">
           <button type="button" id="exportCsv" class="btn btn--dark" disabled>
             <i data-lucide="file-down" aria-hidden="true"></i> Exportar CSV
@@ -167,6 +197,20 @@
       </div>
     </section>
   </main>
+
+  <!-- Diálogo de confirmação (substitui o confirm() do navegador) -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card" role="alertdialog" aria-modal="true"
+         aria-labelledby="modalTitle" aria-describedby="modalMsg">
+      <h3 class="modal__title" id="modalTitle">Confirmar</h3>
+      <p class="modal__msg" id="modalMsg"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="modalCancel">Cancelar</button>
+        <button type="button" class="btn btn--primary" id="modalOk">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 

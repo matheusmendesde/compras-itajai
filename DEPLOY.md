@@ -1,7 +1,6 @@
 # Deploy & Atualização — Compras Itajaí
 
-Guia rápido pra publicar e manter a ferramenta no ar. Não precisa ser de TI;
-é só seguir os passos.
+Guia rápido pra publicar e manter a ferramenta no ar.
 
 - **Site no ar:** https://matheusmendesde.github.io/compras-itajai/
 - **Repositório:** https://github.com/matheusmendesde/compras-itajai
