@@ -57,9 +57,10 @@ Deploy = `git push` (GitHub Pages serve estático). Ver `DEPLOY.md`.
 - **Conversor:** lê o CSV em **latin1/ANSI**, separador `;`, pula cabeçalho,
   `mp` = miolo (a descrição pode ter `;`), e **descarta linhas corrompidas**
   (só aceita `sku` `^\d{3,}$` e `mp` não-vazio). Escolhe o **maior** CSV em `data/`.
-- **Cache-busting:** o conversor carimba `data/skus.js?v=<hash>` no `index.html`.
-  O hash é do conteúdo → só muda quando os dados mudam. **Commitar `index.html`
-  junto** quando o banco muda.
+- **Cache-busting:** o conversor carimba `?v=<hash do conteúdo>` em **`skus.js`,
+  `styles.css` e `app.js`** no `index.html` (o GitHub Pages manda o navegador cachear
+  assets ~10 min, então sem isso um F5 pega CSS/JS velho). Rode o conversor antes de
+  cada push e **commite o `index.html`** junto.
 - **Dados são ASCII** (descrições do ERP em maiúsculas sem acento). A busca normaliza
   (maiúsculas, sem acento via NFD, espaços colapsados) em `normalizar()`.
 - **Busca:** por tokens, ordem livre, todos precisam casar — na descrição **ou no SKU**

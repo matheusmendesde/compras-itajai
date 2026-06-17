@@ -132,22 +132,32 @@ function main() {
 
   writeFileSync(OUTPUT, banner + body, 'utf8');
 
-  // Cache-busting: carimba a versão (hash do conteúdo) no <script> do index.html.
-  // Como o skus.js só muda quando os dados mudam, o hash só muda nesses casos —
-  // e um F5 sempre baixa a versão nova (nunca uma em cache).
-  const versao = createHash('md5').update(body).digest('hex').slice(0, 8);
+  // Cache-busting: carimba ?v=<hash do conteúdo> em skus.js, styles.css e app.js
+  // no index.html. Assim, um F5 sempre baixa a versão nova (nunca uma em cache do
+  // navegador / CDN). O hash só muda quando o arquivo muda.
+  function hashTexto(txt) { return createHash('md5').update(txt).digest('hex').slice(0, 8); }
+  function hashArquivo(caminho) {
+    try { return createHash('md5').update(readFileSync(caminho)).digest('hex').slice(0, 8); }
+    catch (e) { return '0'; }
+  }
   const INDEX = join(ROOT, 'index.html');
   try {
-    const html = readFileSync(INDEX, 'utf8');
-    const novo = html.replace(
-      /(src=["']data\/skus\.js)(\?v=[^"']*)?(["'])/,
-      `$1?v=${versao}$3`
-    );
-    if (novo !== html) {
-      writeFileSync(INDEX, novo, 'utf8');
-      console.log(`[info] index.html carimbado: data/skus.js?v=${versao}`);
+    let html = readFileSync(INDEX, 'utf8');
+    const carimbos = [
+      { re: /(src=["']data\/skus\.js)(\?v=[^"']*)?(["'])/,    v: hashTexto(body) },
+      { re: /(href=["']css\/styles\.css)(\?v=[^"']*)?(["'])/, v: hashArquivo(join(ROOT, 'css', 'styles.css')) },
+      { re: /(src=["']js\/app\.js)(\?v=[^"']*)?(["'])/,       v: hashArquivo(join(ROOT, 'js', 'app.js')) }
+    ];
+    let mudou = false;
+    for (const c of carimbos) {
+      const novo = html.replace(c.re, `$1?v=${c.v}$3`);
+      if (novo !== html) { html = novo; mudou = true; }
+    }
+    if (mudou) {
+      writeFileSync(INDEX, html, 'utf8');
+      console.log('[info] index.html carimbado (skus.js, styles.css, app.js).');
     } else {
-      console.log('[aviso] não achei <script src="data/skus.js"> no index.html — versão não carimbada.');
+      console.log('[aviso] não achei refs pra carimbar no index.html.');
     }
   } catch (e) {
     console.log('[aviso] não consegui carimbar o index.html:', e.message);
