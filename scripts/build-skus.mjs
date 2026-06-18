@@ -50,7 +50,9 @@ const EXTRAS = [
   { sku: '5001374', mp: 'EMBALAGEM CAMURCA 0,13MM 20X27 (LEGGING) UNICA U', unid: 'UN', grupo: 'EMBALAGENS' },
 
   // Aviamentos avulsos que não vieram no export do ERP
-  { sku: '1157887', mp: 'AVIAMENTO VIES DOBRAVEL MALIBU 16', unid: 'MT', grupo: 'AVIAMENTO' }
+  { sku: '1157887', mp: 'AVIAMENTO VIES DOBRAVEL MALIBU 16', unid: 'MT', grupo: 'AVIAMENTO' },
+  { sku: '5001590', mp: 'RIBBON 110X90 CERA S2B', unid: 'UN', grupo: 'AVIAMENTO' },
+  { sku: '5000799', mp: 'RIBBON 110X360 MTS UNICA U', unid: 'UN', grupo: 'AVIAMENTO' }
 ];
 
 function acharEntrada() {
