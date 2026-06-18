@@ -47,6 +47,7 @@ const EXTRAS = [
   { sku: '5009998', mp: 'EMBALAGEM 12x18', unid: 'KG', grupo: 'EMBALAGENS' },
   { sku: '5010002', mp: 'EMBALAGEM 16x20', unid: 'KG', grupo: 'EMBALAGENS' },
   { sku: '5009197', mp: 'SACO DE RÁFIA', unid: 'KG', grupo: 'EMBALAGENS' },
+  { sku: '5001374', mp: 'EMBALAGEM CAMURCA 0,13MM 20X27 (LEGGING) UNICA U', unid: 'KG', grupo: 'EMBALAGENS' },
 
   // Aviamentos avulsos que não vieram no export do ERP
   { sku: '1157887', mp: 'AVIAMENTO VIES DOBRAVEL MALIBU 16', unid: 'MT', grupo: 'AVIAMENTO' }

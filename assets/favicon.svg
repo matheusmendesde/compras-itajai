@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Janela do navegador -->
+  <g>
+    <!-- corpo -->
+    <rect x="44" y="64" width="340" height="320" rx="12" fill="#dcdef7"/>
+    <!-- faixa inferior (leve profundidade) -->
+    <rect x="44" y="360" width="340" height="24" rx="0" fill="#c9cdf0"/>
+    <rect x="44" y="372" width="340" height="12" rx="12" fill="#c9cdf0"/>
+    <!-- barra de título -->
+    <path d="M44 76 a12 12 0 0 1 12 -12 h316 a12 12 0 0 1 12 12 v40 H44 Z" fill="#3f5260"/>
+    <!-- pontinhos -->
+    <circle cx="72" cy="90" r="9" fill="#ec5e56"/>
+    <circle cx="100" cy="90" r="9" fill="#f4c63d"/>
+    <circle cx="128" cy="90" r="9" fill="#4a9fef"/>
+    <!-- barra de endereço -->
+    <rect x="156" y="80" width="206" height="20" rx="10" fill="#33434e"/>
+  </g>
+
+  <!-- Estrela (com leve recorte branco onde sobrepõe a janela) -->
+  <polygon
+    points="372,224 407.3,307.5 497.5,315.2 429.1,374.5 449.6,462.8 372,416 294.4,462.8 314.9,374.5 246.5,315.2 336.7,307.5"
+    fill="#1e9bf0" stroke="#f7f8fc" stroke-width="10" stroke-linejoin="round"/>
+</svg>
