@@ -31,7 +31,7 @@ const CANDIDATOS = [
 ];
 
 // Itens fixos que NÃO vêm no CSV do ERP. Ficam embutidos aqui pra
-// sobreviverem a toda regeneração. (categoria EMBALAGENS — todas em KG)
+// sobreviverem a toda regeneração. (categoria EMBALAGENS, AVIAMENTOS etc.)
 const EXTRAS = [
   { sku: '5000412', mp: 'EMBALAGEM 15x20', unid: 'KG', grupo: 'EMBALAGENS' },
   { sku: '5000655', mp: 'EMBALAGEM 13x18', unid: 'KG', grupo: 'EMBALAGENS' },
@@ -47,7 +47,7 @@ const EXTRAS = [
   { sku: '5009998', mp: 'EMBALAGEM 12x18', unid: 'KG', grupo: 'EMBALAGENS' },
   { sku: '5010002', mp: 'EMBALAGEM 16x20', unid: 'KG', grupo: 'EMBALAGENS' },
   { sku: '5009197', mp: 'SACO DE RÁFIA', unid: 'KG', grupo: 'EMBALAGENS' },
-  { sku: '5001374', mp: 'EMBALAGEM CAMURCA 0,13MM 20X27 (LEGGING) UNICA U', unid: 'KG', grupo: 'EMBALAGENS' },
+  { sku: '5001374', mp: 'EMBALAGEM CAMURCA 0,13MM 20X27 (LEGGING) UNICA U', unid: 'UN', grupo: 'EMBALAGENS' },
 
   // Aviamentos avulsos que não vieram no export do ERP
   { sku: '1157887', mp: 'AVIAMENTO VIES DOBRAVEL MALIBU 16', unid: 'MT', grupo: 'AVIAMENTO' }
@@ -86,6 +86,7 @@ function main() {
   const lines = raw.split(/\r?\n/);
 
   const seen = new Set();
+  const skuToMp = new Map(); // sku -> descrição (pra avisar duplicados nos EXTRAS)
   const items = [];
   let skipped = 0;
 
@@ -111,15 +112,23 @@ function main() {
 
     if (seen.has(sku)) { skipped++; continue; }
     seen.add(sku);
+    skuToMp.set(sku, mp);
 
     items.push({ sku, mp, unid, grupo });
   }
 
   // Acrescenta os itens fixos (EMBALAGENS etc.), sem duplicar SKU.
+  // Se um EXTRA tiver SKU que já existe (no ERP ou listado antes), ele é
+  // IGNORADO e o aviso aparece no final — você não precisa conferir à mão.
   let extrasAdd = 0;
+  const extrasDup = [];
   for (const ex of EXTRAS) {
-    if (seen.has(ex.sku)) continue;
+    if (seen.has(ex.sku)) {
+      extrasDup.push({ sku: ex.sku, mp: ex.mp, existente: skuToMp.get(ex.sku) || '(repetido na lista EXTRAS)' });
+      continue;
+    }
     seen.add(ex.sku);
+    skuToMp.set(ex.sku, ex.mp);
     items.push({ sku: ex.sku, mp: ex.mp, unid: ex.unid, grupo: ex.grupo });
     extrasAdd++;
   }
@@ -166,7 +175,18 @@ function main() {
 
   console.log(`\n[ok] ${items.length} itens gravados em data/skus.js`);
   console.log(`[info] ${extrasAdd} item(ns) fixo(s) (EMBALAGENS etc.) incluído(s).`);
-  console.log(`[info] ${skipped} linha(s) descartada(s)/duplicada(s).\n`);
+  console.log(`[info] ${skipped} linha(s) descartada(s)/duplicada(s).`);
+
+  if (extrasDup.length) {
+    console.log(`\n[ATENÇÃO] ${extrasDup.length} item(ns) do EXTRAS foram IGNORADOS por SKU já existente:`);
+    for (const d of extrasDup) {
+      console.log(`   - ${d.sku} "${d.mp}"  ->  já existe como: "${d.existente}"`);
+    }
+    console.log('   (Se quer mesmo esse SKU, remova/edite a duplicata; senão pode ignorar.)');
+  } else {
+    console.log('[info] Nenhum SKU duplicado nos EXTRAS.');
+  }
+  console.log('');
 }
 
 main();

@@ -46,19 +46,26 @@ Branch `main` / `(root)` → Save**. Em ~1–2 min o site fica no ar.
 1. Se for **novo export do ERP**: copie o arquivo pra pasta `data/`
    (pode ser `SKU DAS MP.csv` — o conversor pega o maior CSV da pasta).
 2. Se for **item fixo que o ERP não tem** (ex.: EMBALAGENS): edite a lista
-   `EXTRAS` em [`scripts/build-skus.mjs`](scripts/build-skus.mjs).
-3. Gere o banco e publique:
+   `EXTRAS` em [`scripts/build-skus.mjs`](scripts/build-skus.mjs). Adicione uma linha
+   no mesmo formato (`{ sku, mp, unid, grupo }`). **Não precisa conferir duplicado à
+   mão:** se o SKU já existir, o build avisa no terminal `[ATENÇÃO] ... IGNORADOS por
+   SKU já existente` e ignora a sua cópia.
+3. Publique — **jeito fácil:** dê **duplo clique em `scripts/deploy.bat`**
+   (gera o banco e faz `git push` sozinho). Dá pra passar uma mensagem:
+   `scripts\deploy.bat "adiciona embalagem nova"`.
 
-```powershell
-cd caminho\para\compras-itajai
-node scripts/build-skus.mjs
-git add .
-git commit -m "Atualiza banco de SKUs"
-git push
-```
+   Ou, no terminal, manualmente:
+   ```powershell
+   cd caminho\para\compras-itajai
+   node scripts/build-skus.mjs
+   git add .
+   git commit -m "Atualiza banco de SKUs"
+   git push
+   ```
 
 Pronto. O GitHub Pages republica sozinho; quem der **F5** pega a versão nova
-(o conversor troca o `?v=` do `skus.js`, então o navegador nunca usa cache velho).
+(o conversor troca o `?v=` de `skus.js`/`styles.css`/`app.js`, então o navegador
+nunca usa cache velho).
 
 > Precisa do **Node.js** instalado pra rodar o `node scripts/build-skus.mjs`.
 > Download: https://nodejs.org (versão LTS).
