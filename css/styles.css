@@ -373,13 +373,14 @@ body {
 .order__table tr:last-child td { border-bottom: none; }
 .order__table td.mono { font-family: var(--font-mono); }
 /* Larguras (table-layout: fixed) — soma 100% pra nada estourar/cortar */
-.order__table th:nth-child(1), .order__table td:nth-child(1) { width: 10%; }
-.order__table th:nth-child(2), .order__table td:nth-child(2) { width: 31%; }
-.order__table th:nth-child(3), .order__table td:nth-child(3) { width: 13%; }
-.order__table th:nth-child(4), .order__table td:nth-child(4) { width: 17%; }
-.order__table th:nth-child(5), .order__table td:nth-child(5) { width: 12%; }
-.order__table th:nth-child(6), .order__table td:nth-child(6) { width: 11%; }
-.order__table th:nth-child(7), .order__table td:nth-child(7) {
+.order__table th:nth-child(1), .order__table td:nth-child(1) { width: 9%; }
+.order__table th:nth-child(2), .order__table td:nth-child(2) { width: 25%; }
+.order__table th:nth-child(3), .order__table td:nth-child(3) { width: 11%; }
+.order__table th:nth-child(4), .order__table td:nth-child(4) { width: 15%; }
+.order__table th:nth-child(5), .order__table td:nth-child(5) { width: 9%; }
+.order__table th:nth-child(6), .order__table td:nth-child(6) { width: 14%; }
+.order__table th:nth-child(7), .order__table td:nth-child(7) { width: 11%; }
+.order__table th:nth-child(8), .order__table td:nth-child(8) {
   width: 6%; padding-left: 2px; padding-right: 6px; text-align: center;
 }
 .order__table th { white-space: normal; }
@@ -508,9 +509,11 @@ body {
   .pager #novoCliente { flex: 1 1 auto; }
 }
 
-/* Edição inline na tabela do pedido (quantidade e cor/tamanho) */
+/* Edição inline na tabela do pedido (quantidade, cor/tamanho e data) */
 .cell-input {
   width: 100%;
+  min-width: 0; /* deixa o input de data encolher na coluna estreita */
+  box-sizing: border-box;
   font: inherit;
   color: var(--ink);
   background: transparent;
@@ -518,6 +521,8 @@ body {
   border-radius: 4px;
   padding: 4px 6px;
 }
+/* input[type=date] herda o tamanho da fonte da tabela e não estoura a célula */
+.cell-data .cell-input { padding: 4px; }
 .cell-input.mono { font-family: var(--font-mono); }
 .cell-input:hover { border-color: var(--line); }
 .cell-input:focus {

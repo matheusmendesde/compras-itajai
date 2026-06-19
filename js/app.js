@@ -27,6 +27,32 @@
     return UNIDADES[c] || c;
   }
 
+  // ----- Datas (DT. SOLIC.) -----
+  // No modelo a data fica em ISO (aaaa-mm-dd, o value do <input type="date">).
+  // Vira dd/mm/aaaa só na exportação; volta a ISO na importação.
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function hojeISO() {
+    var d = new Date(); // fuso local — não usar toISOString() (cairia em UTC e podia voltar um dia)
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function isoParaBR(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '').trim());
+    return m ? (m[3] + '/' + m[2] + '/' + m[1]) : '';
+  }
+  function brParaISO(v) {
+    if (v == null) return '';
+    if (v instanceof Date && !isNaN(v)) {
+      return v.getFullYear() + '-' + pad2(v.getMonth() + 1) + '-' + pad2(v.getDate());
+    }
+    var s = String(v).trim();
+    if (!s) return '';
+    var br = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+    if (br) return br[3] + '-' + pad2(+br[2]) + '-' + pad2(+br[1]);
+    var iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+    return '';
+  }
+
   // ----- Dicionário de cores (a cor já vem escrita no artigo) -----
   // Tudo normalizado (MAIÚSCULAS, sem acento). Inclui as cores "fantasia"
   // da empresa (AZULEJO, SANREMO, ODALISCA...) e compostas (MOCHA MOUSSE...).
@@ -250,6 +276,7 @@
   var selSku = $('selSku');
   var selUnid = $('selUnid');
   var corTamanho = $('corTamanho');
+  var dataSolic = $('dataSolic');
   var quantidade = $('quantidade');
   var addItem = $('addItem');
   var cancelSel = $('cancelSel');
@@ -393,6 +420,7 @@
     selSku.textContent = item.sku;
     selUnid.textContent = rotuloUnidade(item.unid);
     corTamanho.value = detectarCorTamanho(item.mp); // cor + tamanho (editável)
+    dataSolic.value = hojeISO();                     // já vem com a data de hoje (editável)
     quantidade.value = '';
     selectedCard.hidden = false;
     renderIcons();
@@ -423,6 +451,7 @@
       artigo: selecionado.mp,
       unid: rotuloUnidade(selecionado.unid),
       cor: corTamanho.value.trim(),
+      dataSolic: dataSolic.value || hojeISO(), // vazio -> data de hoje
       qtd: qtd
     });
     selecionado = null;
@@ -461,6 +490,7 @@
         '<td class="mono">' + escapeHtml(linha.sku) + '</td>' +
         '<td class="cell-cor"></td>' +
         '<td>' + escapeHtml(linha.unid) + '</td>' +
+        '<td class="cell-data"></td>' +
         '<td class="cell-qtd"></td>' +
         '<td></td>';
 
@@ -472,6 +502,15 @@
       inCor.setAttribute('aria-label', 'Cor/Tamanho');
       inCor.addEventListener('input', function () { atual().itens[idx].cor = inCor.value; });
       tr.querySelector('.cell-cor').appendChild(inCor);
+
+      // DT. SOLIC. editável
+      var inData = document.createElement('input');
+      inData.type = 'date';
+      inData.className = 'cell-input';
+      inData.value = linha.dataSolic || '';
+      inData.setAttribute('aria-label', 'Data de solicitação');
+      inData.addEventListener('input', function () { atual().itens[idx].dataSolic = inData.value; });
+      tr.querySelector('.cell-data').appendChild(inData);
 
       // QUANTIDADE editável
       var inQtd = document.createElement('input');
@@ -586,13 +625,13 @@
   })(orderCard);
 
   // ===================== Exportação =====================
-  var COLS = ['N° PEDIDO', 'ARTIGO', 'SKU', 'COR/TAMANHO', 'UN. MED.', 'QUANTIDADE'];
+  var COLS = ['N° PEDIDO', 'ARTIGO', 'SKU', 'COR/TAMANHO', 'UN. MED.', 'DT. SOLIC.', 'QUANTIDADE'];
 
   function linhasMatriz(cli) {
     cli = cli || atual();
     var nped = (cli.numPedido || '').trim();
     return cli.itens.map(function (l) {
-      return [nped, l.artigo, l.sku, l.cor, l.unid, l.qtd];
+      return [nped, l.artigo, l.sku, l.cor, l.unid, isoParaBR(l.dataSolic), l.qtd];
     });
   }
 
@@ -665,9 +704,9 @@
 
     ws.columns = [
       { width: 12 }, { width: 46 }, { width: 12 },
-      { width: 20 }, { width: 12 }, { width: 13 }
+      { width: 20 }, { width: 12 }, { width: 14 }, { width: 13 }
     ];
-    ws.mergeCells('A1:F1');
+    ws.mergeCells('A1:G1');
     var bar = ws.getCell('A1');
     bar.value = titulo;
     bar.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
@@ -683,12 +722,12 @@
     dados.forEach(function (r) { ws.addRow(r); });
 
     var MIN_LINHAS = 24;
-    for (var i = dados.length; i < MIN_LINHAS; i++) ws.addRow(['', '', '', '', '', '']);
+    for (var i = dados.length; i < MIN_LINHAS; i++) ws.addRow(['', '', '', '', '', '', '']);
 
     var ultima = 2 + Math.max(dados.length, MIN_LINHAS);
     var fina = { style: 'thin', color: { argb: 'FF000000' } };
     for (var r = 1; r <= ultima; r++) {
-      for (var c = 1; c <= 6; c++) {
+      for (var c = 1; c <= 7; c++) {
         ws.getCell(r, c).border = { top: fina, left: fina, bottom: fina, right: fina };
       }
     }
@@ -770,17 +809,33 @@
     return String(v);
   }
 
-  // Matriz -> { cliente, numPedido, linhas[] }. Acha o cabeçalho pelo COLS.
+  // Matriz -> { cliente, numPedido, linhas[] }. Acha o cabeçalho e lê por RÓTULO,
+  // não por posição fixa: assim arquivos antigos (sem DT. SOLIC.) ainda importam.
   function matrizParaPedido(matriz) {
-    var alvo = COLS.map(function (c) { return normalizar(c); }).join('|');
-    var hi = -1;
+    // Cabeçalho = primeira linha cujas células (normalizadas) tragam ARTIGO e SKU.
+    var hi = -1, idx = {};
     for (var i = 0; i < matriz.length; i++) {
       var linha = matriz[i] || [];
-      var chave = [];
-      for (var c = 0; c < COLS.length; c++) chave.push(normalizar(linha[c] == null ? '' : linha[c]));
-      if (chave.join('|') === alvo) { hi = i; break; }
+      var mapa = {}, temArtigo = false, temSku = false;
+      for (var c = 0; c < linha.length; c++) {
+        var rotulo = normalizar(linha[c] == null ? '' : linha[c]);
+        if (!rotulo) continue;
+        if (!(rotulo in mapa)) mapa[rotulo] = c; // 1ª ocorrência de cada rótulo
+        if (rotulo === 'ARTIGO') temArtigo = true;
+        if (rotulo === 'SKU') temSku = true;
+      }
+      if (temArtigo && temSku) { hi = i; idx = mapa; break; }
     }
     if (hi === -1) return null; // não é um pedido reconhecível
+
+    var iNped = idx[normalizar('N° PEDIDO')];
+    var iArtigo = idx['ARTIGO'];
+    var iSku = idx['SKU'];
+    var iCor = idx[normalizar('COR/TAMANHO')];
+    var iUnid = idx[normalizar('UN. MED.')];
+    var iData = idx[normalizar('DT. SOLIC.')]; // opcional (ausente em arquivos antigos)
+    var iQtd = idx['QUANTIDADE'];
+    function celula(L, i) { return i == null ? '' : limpa(L[i]); }
 
     // Cliente: primeira célula não-vazia acima do cabeçalho (a faixa do topo)
     var cli = '';
@@ -793,11 +848,12 @@
     var linhas = [], nped = '';
     for (var r = hi + 1; r < matriz.length; r++) {
       var L = matriz[r] || [];
-      var np = limpa(L[0]), artigo = limpa(L[1]), sku = limpa(L[2]);
-      var cor = limpa(L[3]), unid = limpa(L[4]), qtd = limpa(L[5]);
+      var np = celula(L, iNped), artigo = celula(L, iArtigo), sku = celula(L, iSku);
+      var cor = celula(L, iCor), unid = celula(L, iUnid), qtd = celula(L, iQtd);
+      var dataSolic = brParaISO(celula(L, iData)); // '' se a coluna não existir
       if (!artigo && !sku && !qtd) continue; // pula linhas vazias / preenchimento
       if (!nped && np) nped = np;
-      linhas.push({ sku: sku, artigo: artigo, unid: unid, cor: cor, qtd: qtd });
+      linhas.push({ sku: sku, artigo: artigo, unid: unid, cor: cor, dataSolic: dataSolic, qtd: qtd });
     }
     return { cliente: cli, numPedido: nped, linhas: linhas };
   }
@@ -860,7 +916,7 @@
             var matriz = [];
             ws.eachRow({ includeEmpty: true }, function (rowObj) {
               var arr = [];
-              for (var c = 1; c <= 6; c++) arr.push(celulaTexto(rowObj.getCell(c).value));
+              for (var c = 1; c <= 7; c++) arr.push(celulaTexto(rowObj.getCell(c).value));
               matriz.push(arr);
             });
             var d = matrizParaPedido(matriz);
