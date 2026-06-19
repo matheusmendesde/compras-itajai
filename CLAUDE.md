@@ -5,8 +5,8 @@ Guia pra agentes/devs trabalhando neste repositório. Leia antes de editar.
 ## O que é
 
 Ferramenta de **uma página** pro time de Compras buscar matéria-prima (MP) e montar
-pedidos pra exportar em CSV/Excel no formato de um template (faixa amarela "CLIENTE"
-+ colunas `N° PEDIDO | ARTIGO | SKU | COR/TAMANHO | UN. MED. | QUANTIDADE`).
+pedidos pra exportar em **Excel** no formato de um template (faixa amarela "CLIENTE"
++ colunas `N° PEDIDO | ARTIGO | SKU | COR/TAMANHO | UN. MED. | DT. SOLIC. | QUANTIDADE`).
 
 - **HTML/CSS/JS puro, sem build, sem servidor.** Tem que funcionar abrindo o
   `index.html` direto (via `file://`) e também no GitHub Pages.
@@ -21,8 +21,8 @@ data/SKU DAS MP.csv  →  scripts/build-skus.mjs  →  data/skus.js  →  index.
 
 - O banco é carregado por `<script src="data/skus.js?v=HASH">` (define `window.SKUS`).
   **Nada de `fetch`/AJAX** — quebraria em `file://`.
-- `js/app.js` é uma IIFE; todo o estado (busca, `pedido[]`, exportação, importação)
-  vive ali. Sem framework, sem dependências de build.
+- `js/app.js` é uma IIFE; todo o estado (busca, `pedido[]`, exportação) vive ali.
+  Sem framework, sem dependências de build.
 
 ## Arquivos
 
@@ -30,7 +30,7 @@ data/SKU DAS MP.csv  →  scripts/build-skus.mjs  →  data/skus.js  →  index.
 |---|---|
 | `index.html` | Página única. Carrega Lucide, ExcelJS e `data/skus.js` por CDN/`<script>`. |
 | `css/styles.css` | Tema "etiqueta de chão de fábrica" (papel frio, 1 acento amarelo `#FFD400`, verde só pra "adicionado"). |
-| `js/app.js` | Busca, detecção de cor/tamanho, montagem do pedido, exportação e importação. |
+| `js/app.js` | Busca, detecção de cor/tamanho, montagem do pedido e exportação (Excel). |
 | `scripts/build-skus.mjs` | Converte o CSV do ERP → `data/skus.js`. Tem itens fixos e cache-busting. |
 | `data/skus.js` | **Gerado** — não editar à mão. É o que vai pro git e a página usa. |
 | `data/SKU DAS MP.csv` | CSV bruto do ERP. **Fora do git** (`.gitignore`). |
@@ -71,9 +71,13 @@ Deploy = `git push` (GitHub Pages serve estático). Ver `DEPLOY.md`.
 - **Unidades:** mapa `UNIDADES` (`UN→unidades, MT/M→metros, KG→kg, PR→pares,
   PC→peças, RL→rolos, KM→km, M2→m², ML→ml`).
 - **Excel usa ExcelJS** (não SheetJS) — a versão grátis do SheetJS não aplica estilo.
-  ExcelJS também **lê** `.xlsx` na importação. Offline → cai pro CSV e avisa.
-- **CSV:** UTF-8 **com BOM**, separador `;`, `\r\n`. Linha 1 = nome do cliente
-  (só o nome, não "CLIENTE: x"); linha 2 = cabeçalho; demais = dados.
+  ExcelJS vem por CDN: **sem internet, não exporta** — o app avisa ("Sem conexão com a
+  internet…") em vez de gerar arquivo. (Não há mais exportação CSV nem importação.)
+- **DT. SOLIC. (data de solicitação):** no modelo cada item guarda `dataSolic` em ISO
+  (`aaaa-mm-dd`, o value do `<input type="date">`); só vira `dd/mm/aaaa` na exportação
+  (`isoParaBR`). Ao selecionar/adicionar um item, se estiver vazia é preenchida com **hoje**
+  (`hojeISO`). A coluna existe pra **não somar** itens iguais de datas diferentes — cada um
+  vira uma linha (o app nunca agregou linhas, então isso é natural).
 - **CSS:** existe `[hidden] { display: none !important; }` global porque alguns
   componentes têm `display` custom que sobrescreveria o atributo `hidden`. Não remover.
 - Acessibilidade é piso: foco visível, `prefers-reduced-motion` respeitado.
@@ -84,23 +88,21 @@ O estado é uma lista `clientes[]` (`{nome, numPedido, itens[]}`) + índice `ati
 `atual()` é o cliente visível e `totalItens()` soma tudo. O **pager** (setas + swipe +
 Novo/Remover) troca o `ativo` via `irPara(i, dir)`. **Exportar Excel** gera **uma aba
 por cliente com itens** (`montarAba` por cliente, `nomeAbaUnico` evita abas repetidas).
-**CSV** e os campos N° Pedido/Cliente operam só no cliente ativo. **Importar `.xlsx`**
-percorre todas as `worksheets` (cada aba = um cliente) e substitui `clientes[]`.
+Os campos N° Pedido/Cliente operam só no cliente ativo.
 
-## Importar / editar pedido
+## Editar pedido
 
-`index.html` tem **Importar pedido** (CSV/XLSX). Reabre um pedido exportado:
-`parseCsvText` / leitura ExcelJS → `matrizParaPedido` (acha cabeçalho por `COLS`,
-ignora linhas vazias) → substitui o pedido atual (confirma se já houver itens).
-Na tabela, **QUANTIDADE** e **COR/TAMANHO** são editáveis inline (atualizam o modelo
-sem re-render, pra não perder o foco).
+Não há importação/reabertura de arquivo — o pedido vive só na sessão. Na tabela,
+**QUANTIDADE**, **COR/TAMANHO** e **DT. SOLIC.** são editáveis inline (atualizam o modelo
+sem re-render, pra não perder o foco); dá pra remover linhas e adicionar novas pela busca.
 
 ## Verificação (manual, no navegador)
 
 Abrir o `index.html` e: buscar (palavra-chave e SKU) → adicionar itens → conferir
-cor/tamanho automáticos → editar inline → remover → **Exportar CSV e Excel** →
-recarregar → **Importar** os arquivos de volta (inclusive um editado no Excel) →
-conferir que cliente/N°/linhas voltam certos. Rodar `node --check js/app.js`.
+cor/tamanho automáticos e **Dt. Solic. = hoje** → editar inline (inclusive a data) →
+adicionar o mesmo item com outra data e conferir que viram **linhas separadas** →
+remover → **Exportar Excel** e conferir a coluna `DT. SOLIC.` em `dd/mm/aaaa`.
+Rodar `node --check js/app.js`.
 
 ## Não-objetivos (decisões já tomadas)
 

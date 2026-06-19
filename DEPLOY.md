@@ -82,8 +82,9 @@ roda sua cópia.
 Você rodou `node scripts/build-skus.mjs` **e** deu `git push`? O site só reflete
 o que está no `data/skus.js` commitado. Depois, dê F5 na página.
 
-**Os ícones sumiram / o Excel virou CSV.**
-É falta de internet (as fontes/ícones/Excel vêm de CDN). Online funciona normal.
+**Os ícones sumiram / não consigo exportar o Excel.**
+É falta de internet (as fontes/ícones/Excel vêm de CDN). O app avisa "Sem conexão
+com a internet…" ao tentar exportar offline. Online funciona normal.
 
 **Posso deixar o repositório privado?**
 O GitHub Pages em repositório privado exige plano pago. Para uso interno grátis,

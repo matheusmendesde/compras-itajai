@@ -1,7 +1,7 @@
 # Compras Itajaí
 
 Ferramenta de **uma página** para o time de Compras buscar matéria-prima (MP) e montar
-um pedido para exportar em **Excel/CSV** no formato do template.
+um pedido para exportar em **Excel (.xlsx)** no formato do template.
 
 - HTML/CSS/JS puro, **sem build e sem servidor**.
 - Funciona via `file://` — basta abrir o `index.html` no navegador.
@@ -15,33 +15,30 @@ um pedido para exportar em **Excel/CSV** no formato do template.
 3. Na coluna esquerda, digite palavras-chave (ex.: `anis preto 16`).
    - A ordem das palavras não importa; acentos são ignorados.
    - Use **↑ / ↓** para navegar e **Enter** para escolher (ou clique no resultado).
-4. No item selecionado, informe **Cor/Tamanho** e **Quantidade** e clique **Adicionar ao pedido**.
-5. Clique em **Exportar CSV** ou **Exportar Excel (.xlsx)**.
-   - O CSV é UTF-8 com BOM e separador `;` (abre certinho no Excel PT-BR).
-   - O Excel reproduz o template (faixa **CLIENTE** mesclada + cabeçalho).
-   - Sem internet, o botão Excel cai automaticamente para CSV e avisa.
+4. No item selecionado, informe **Cor/Tamanho**, **Dt. Solic.** e **Quantidade** e clique
+   **Adicionar ao pedido**.
+   - A **Dt. Solic.** (data de solicitação) já vem preenchida com a **data de hoje** — mude
+     se precisar. Itens iguais com datas diferentes ficam em **linhas separadas** (não somam),
+     pra orientar a separação de material.
+5. Clique em **Exportar Excel (.xlsx)**.
+   - O Excel reproduz o template (faixa **CLIENTE** mesclada + cabeçalho), com a data no
+     formato `dd/mm/aaaa`.
 
-> Internet é necessária apenas para as fontes, ícones e o gerador de Excel (via CDN).
-> O CSV funciona 100% offline.
+> **Precisa de internet.** As fontes, os ícones e o gerador de Excel vêm por CDN. Sem
+> conexão, o app mostra um aviso ("Sem conexão com a internet…") e não exporta — basta
+> conectar e tentar de novo.
 
 ### Vários clientes num só Excel
 
 Cada cliente é um **card** (passe pro lado com as setas `‹ ›` ou arrastando, ou crie
 com **Novo cliente**). Ao **Exportar Excel**, todos viram **um único arquivo com uma
-aba por cliente** (nome da aba = cliente). O **CSV** exporta só o cliente que está
-aberto na tela. **Importar** um `.xlsx` com várias abas recria um card por aba.
+aba por cliente** (nome da aba = cliente).
 
-### Reabrir um pedido pra editar (CSV/XLSX)
+### Editar o pedido na tela
 
-Pedidos mudam durante a semana. Pra retomar um pedido já exportado:
-
-1. Clique em **Importar pedido** (rodapé do card) e escolha o **CSV** ou **XLSX**
-   que você exportou aqui (também aceita um arquivo editado à mão no Excel).
-2. Cliente, N° Pedido e todas as linhas voltam pra tela. Importar **substitui** o
-   pedido atual (pede confirmação se já houver itens).
-3. Edite na própria tabela: **Quantidade** e **Cor/Tamanho** são editáveis ali mesmo;
-   dá pra remover linhas e adicionar novas pela busca.
-4. **Exporte de novo** (CSV/Excel) — sai no mesmo formato do template.
+Na própria tabela dá pra ajustar **Quantidade**, **Cor/Tamanho** e **Dt. Solic.** de cada
+linha, **remover** linhas e **adicionar** novas pela busca — tudo antes de exportar. Depois
+de exportado, a edição é feita no próprio Excel.
 
 ---
 
