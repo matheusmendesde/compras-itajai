@@ -1,6 +1,8 @@
 // build-skus.mjs
 // Lê data/sku-mp.csv (latin1/ANSI, separador ";") e gera data/skus.js
 // com "window.SKUS = [{sku, mp, unid, grupo}, ...]".
+// Também lê data/uso-consumo.csv (utf8, "SKU;DESCRIÇÃO;UNID") e cadastra esses
+// itens no grupo fixo "USO E CONSUMO" (fonte curada por nós, não vem do ERP).
 //
 // Uso: node scripts/build-skus.mjs
 //
@@ -20,6 +22,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const DATA = join(ROOT, 'data');
 const OUTPUT = join(DATA, 'skus.js');
+
+// Lista de USO E CONSUMO (MRO): itens que NÃO vêm no export do ERP. Fica num CSV
+// versionado próprio (3 colunas "SKU;DESCRIÇÃO;UNID", sem coluna de grupo).
+const USO_CSV = join(DATA, 'uso-consumo.csv');
+const USO_GRUPO = 'USO E CONSUMO';
 
 // Aceita tanto o nome "limpo" quanto o arquivo exportado do ERP (com espaços).
 // Basta jogar o CSV em data/ com qualquer um destes nomes e rodar.
@@ -135,6 +142,48 @@ function main() {
     extrasAdd++;
   }
 
+  // Itens de USO E CONSUMO (data/uso-consumo.csv). Lido por ÚLTIMO, então o que já
+  // existe (ERP ou EXTRAS) vence: SKU repetido é IGNORADO e listado no relatório.
+  // Formato: "SKU;DESCRIÇÃO;UNID" (3 col, sem grupo). Lê como utf8 (curado por nós).
+  let usoAdd = 0;
+  let usoSkipInvalid = 0;
+  const usoDup = [];
+  if (existsSync(USO_CSV)) {
+    let usoRaw = '';
+    try { usoRaw = readFileSync(USO_CSV, 'utf8'); }
+    catch (e) { console.log('[aviso] não consegui ler data/uso-consumo.csv:', e.message); }
+    const usoLines = usoRaw.split(/\r?\n/);
+    for (let i = 0; i < usoLines.length; i++) {
+      const line = usoLines[i];
+      if (!line || !line.trim()) continue;
+      if (/^SKU\s*;/i.test(line)) continue; // pula cabeçalho
+
+      const parts = line.split(';');
+      if (parts.length < 3) { usoSkipInvalid++; continue; }
+
+      const sku = parts[0].trim();
+      const unid = parts[parts.length - 1].trim();
+      let mp = parts.slice(1, parts.length - 1).join(';').trim();
+      // Limpa aspas de CSV: "TEXTO ""X""" -> TEXTO "X"
+      if (mp.length >= 2 && mp.startsWith('"') && mp.endsWith('"')) {
+        mp = mp.slice(1, -1).replace(/""/g, '"').trim();
+      }
+
+      // Descarta corrompidas/estornos: só aceita sku ^\d{3,}$ (cai fora -25977, "7304 - U")
+      if (!/^\d{3,}$/.test(sku)) { usoSkipInvalid++; continue; }
+      if (!mp) { usoSkipInvalid++; continue; }
+
+      if (seen.has(sku)) {
+        usoDup.push({ sku, mp, existente: skuToMp.get(sku) || '(repetido na lista USO)' });
+        continue;
+      }
+      seen.add(sku);
+      skuToMp.set(sku, mp);
+      items.push({ sku, mp, unid, grupo: USO_GRUPO });
+      usoAdd++;
+    }
+  }
+
   const banner = `// ARQUIVO GERADO AUTOMATICAMENTE por scripts/build-skus.mjs
 // Não edite à mão. Rode: node scripts/build-skus.mjs
 // Total de itens: ${items.length}
@@ -177,7 +226,9 @@ function main() {
 
   console.log(`\n[ok] ${items.length} itens gravados em data/skus.js`);
   console.log(`[info] ${extrasAdd} item(ns) fixo(s) (EMBALAGENS etc.) incluído(s).`);
-  console.log(`[info] ${skipped} linha(s) descartada(s)/duplicada(s).`);
+  console.log(`[info] ${usoAdd} item(ns) do grupo USO E CONSUMO incluído(s) (data/uso-consumo.csv).`);
+  console.log(`[info] ${usoSkipInvalid} linha(s) de USO E CONSUMO descartada(s) (inválidas/estornos).`);
+  console.log(`[info] ${skipped} linha(s) do ERP descartada(s)/duplicada(s).`);
 
   if (extrasDup.length) {
     console.log(`\n[ATENÇÃO] ${extrasDup.length} item(ns) do EXTRAS foram IGNORADOS por SKU já existente:`);
@@ -187,6 +238,19 @@ function main() {
     console.log('   (Se quer mesmo esse SKU, remova/edite a duplicata; senão pode ignorar.)');
   } else {
     console.log('[info] Nenhum SKU duplicado nos EXTRAS.');
+  }
+
+  if (usoDup.length) {
+    console.log(`\n[ATENÇÃO] ${usoDup.length} item(ns) de USO E CONSUMO IGNORADOS por SKU já existente (mantido o grupo atual):`);
+    const mostra = usoDup.slice(0, 50);
+    for (const d of mostra) {
+      console.log(`   - ${d.sku} "${d.mp}"  ->  já existe como: "${d.existente}"`);
+    }
+    if (usoDup.length > mostra.length) {
+      console.log(`   ... e mais ${usoDup.length - mostra.length} (todos mantêm o grupo já existente).`);
+    }
+  } else {
+    console.log('[info] Nenhum SKU de USO E CONSUMO colidiu com itens já existentes.');
   }
   console.log('');
 }

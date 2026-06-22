@@ -8,6 +8,10 @@ data/SKU DAS MP.csv
 data/SKU_DAS_MP.csv
 data/*.CSV
 
+# Fonte versionada do grupo USO E CONSUMO (curada por nós, não vem do ERP).
+# Garante o tracking mesmo com a regra data/*.CSV (case-insensitive no Windows).
+!data/uso-consumo.csv
+
 # Lixo de SO / editores
 .DS_Store
 Thumbs.db
