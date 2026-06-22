@@ -30,7 +30,7 @@ data/SKU DAS MP.csv  →  scripts/build-skus.mjs  →  data/skus.js  →  index.
 |---|---|
 | `index.html` | Página única. Carrega Lucide, ExcelJS e `data/skus.js` por CDN/`<script>`. |
 | `css/styles.css` | Tema "etiqueta de chão de fábrica" (papel frio, 1 acento amarelo `#FFD400`, verde só pra "adicionado"). |
-| `js/app.js` | Busca, detecção de cor/tamanho, montagem do pedido e exportação (Excel). |
+| `js/app.js` | Busca, detecção de cor/tamanho, montagem do pedido, exportação e importação (Excel). |
 | `scripts/build-skus.mjs` | Converte o CSV do ERP → `data/skus.js`. Tem itens fixos e cache-busting. |
 | `data/skus.js` | **Gerado** — não editar à mão. É o que vai pro git e a página usa. |
 | `data/SKU DAS MP.csv` | CSV bruto do ERP. **Fora do git** (`.gitignore`). |
@@ -71,8 +71,9 @@ Deploy = `git push` (GitHub Pages serve estático). Ver `DEPLOY.md`.
 - **Unidades:** mapa `UNIDADES` (`UN→unidades, MT/M→metros, KG→kg, PR→pares,
   PC→peças, RL→rolos, KM→km, M2→m², ML→ml`).
 - **Excel usa ExcelJS** (não SheetJS) — a versão grátis do SheetJS não aplica estilo.
-  ExcelJS vem por CDN: **sem internet, não exporta** — o app avisa ("Sem conexão com a
-  internet…") em vez de gerar arquivo. (Não há mais exportação CSV nem importação.)
+  ExcelJS vem por CDN e é usado tanto pra **gerar** quanto pra **ler** `.xlsx`: **sem
+  internet, não exporta nem importa** — o app avisa ("Sem conexão com a internet…").
+  (Exportação/importação são **só `.xlsx`** — não há mais CSV.)
 - **DT. SOLIC. (data de solicitação):** no modelo cada item guarda `dataSolic` em ISO
   (`aaaa-mm-dd`, o value do `<input type="date">`); só vira `dd/mm/aaaa` na exportação
   (`isoParaBR`). Ao selecionar/adicionar um item, se estiver vazia é preenchida com **hoje**
@@ -92,17 +93,23 @@ Os campos N° Pedido/Cliente operam só no cliente ativo.
 
 ## Editar pedido
 
-Não há importação/reabertura de arquivo — o pedido vive só na sessão. Na tabela,
-**QUANTIDADE**, **COR/TAMANHO** e **DT. SOLIC.** são editáveis inline (atualizam o modelo
-sem re-render, pra não perder o foco); dá pra remover linhas e adicionar novas pela busca.
+**Importar Excel** (`importarArquivo`) reabre um `.xlsx` exportado aqui: cada aba vira um
+cliente. `matrizParaPedido` acha o cabeçalho por RÓTULO (`COLS`), não por posição — então
+arquivos antigos (sem `DT. SOLIC.`) ainda entram; datas voltam de `dd/mm/aaaa` (ou Date do
+Excel) pra ISO via `brParaISO`. Importar **substitui** todos os clientes da tela
+(`aplicarClientes`, com modal de confirmação). Fora isso, o pedido vive só na sessão (sem
+autosave). Na tabela, **QUANTIDADE**, **COR/TAMANHO** e **DT. SOLIC.** são editáveis inline
+(atualizam o modelo sem re-render, pra não perder o foco); dá pra remover linhas e adicionar
+novas pela busca.
 
 ## Verificação (manual, no navegador)
 
 Abrir o `index.html` e: buscar (palavra-chave e SKU) → adicionar itens → conferir
 cor/tamanho automáticos e **Dt. Solic. = hoje** → editar inline (inclusive a data) →
 adicionar o mesmo item com outra data e conferir que viram **linhas separadas** →
-remover → **Exportar Excel** e conferir a coluna `DT. SOLIC.` em `dd/mm/aaaa`.
-Rodar `node --check js/app.js`.
+remover → **Exportar Excel** e conferir a coluna `DT. SOLIC.` em `dd/mm/aaaa` →
+**Importar Excel** o `.xlsx` recém-exportado e conferir que recria os clientes/linhas
+(inclusive multi-abas). Rodar `node --check js/app.js`.
 
 ## Não-objetivos (decisões já tomadas)
 

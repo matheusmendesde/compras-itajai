@@ -39,6 +39,20 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '').trim());
     return m ? (m[3] + '/' + m[2] + '/' + m[1]) : '';
   }
+  // Caminho inverso, usado na importação: dd/mm/aaaa (ou Date do Excel) -> ISO.
+  function brParaISO(v) {
+    if (v == null) return '';
+    if (v instanceof Date && !isNaN(v)) {
+      return v.getFullYear() + '-' + pad2(v.getMonth() + 1) + '-' + pad2(v.getDate());
+    }
+    var s = String(v).trim();
+    if (!s) return '';
+    var br = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+    if (br) return br[3] + '-' + pad2(+br[2]) + '-' + pad2(+br[1]);
+    var iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+    return '';
+  }
 
   // ----- Dicionário de cores (a cor já vem escrita no artigo) -----
   // Tudo normalizado (MAIÚSCULAS, sem acento). Inclui as cores "fantasia"
@@ -276,6 +290,8 @@
   var orderTable = $('orderTable');
   var orderTotal = $('orderTotal');
   var exportXlsx = $('exportXlsx');
+  var importPedido = $('importPedido');
+  var importFile = $('importFile');
   var toast = $('toast');
 
   // Pager de clientes
@@ -727,6 +743,145 @@
   }
 
   exportXlsx.addEventListener('click', exportarXlsx);
+
+  // ===================== Importar pedido (.xlsx) =====================
+  // Reabre um .xlsx exportado aqui (ou editado no Excel). Cada aba = um cliente.
+  // Lê por RÓTULO de coluna (COLS), não por posição fixa — robusto a variações.
+  function limpa(v) { return v == null ? '' : String(v).trim(); }
+
+  // Valor de célula do ExcelJS -> texto (cobre string, número, rich text e fórmula).
+  function celulaTexto(v) {
+    if (v == null) return '';
+    if (typeof v === 'object') {
+      if (v.richText) return v.richText.map(function (t) { return t.text; }).join('');
+      if (v.text != null) return String(v.text);
+      if (v.result != null) return String(v.result);
+      if (v instanceof Date) return v; // deixa brParaISO tratar a Date
+      return '';
+    }
+    return String(v);
+  }
+
+  // Matriz (linhas x 7 colunas) -> { cliente, numPedido, linhas[] }. Acha o cabeçalho
+  // pela primeira linha que traga ARTIGO e SKU; cliente = faixa não-vazia acima dele.
+  function matrizParaPedido(matriz) {
+    var hi = -1, idx = {};
+    for (var i = 0; i < matriz.length; i++) {
+      var linha = matriz[i] || [];
+      var mapa = {}, temArtigo = false, temSku = false;
+      for (var c = 0; c < linha.length; c++) {
+        var rotulo = normalizar(linha[c] == null ? '' : linha[c]);
+        if (!rotulo) continue;
+        if (!(rotulo in mapa)) mapa[rotulo] = c; // 1ª ocorrência de cada rótulo
+        if (rotulo === 'ARTIGO') temArtigo = true;
+        if (rotulo === 'SKU') temSku = true;
+      }
+      if (temArtigo && temSku) { hi = i; idx = mapa; break; }
+    }
+    if (hi === -1) return null; // não é um pedido reconhecível
+
+    var iNped = idx[normalizar('N° PEDIDO')];
+    var iArtigo = idx['ARTIGO'];
+    var iSku = idx['SKU'];
+    var iCor = idx[normalizar('COR/TAMANHO')];
+    var iUnid = idx[normalizar('UN. MED.')];
+    var iData = idx[normalizar('DT. SOLIC.')]; // opcional (arquivos antigos não têm)
+    var iQtd = idx['QUANTIDADE'];
+    function celula(L, i) { return i == null ? '' : limpa(L[i]); }
+
+    // Cliente: primeira célula não-vazia acima do cabeçalho (a faixa amarela do topo)
+    var cli = '';
+    for (var k = 0; k < hi; k++) {
+      var c0 = matriz[k] && matriz[k][0] != null ? String(matriz[k][0]).trim() : '';
+      if (c0) { cli = c0; break; }
+    }
+    if (normalizar(cli) === 'CLIENTE') cli = ''; // rótulo padrão, não é nome real
+
+    var linhas = [], nped = '';
+    for (var r = hi + 1; r < matriz.length; r++) {
+      var L = matriz[r] || [];
+      var np = celula(L, iNped), artigo = celula(L, iArtigo), sku = celula(L, iSku);
+      var cor = celula(L, iCor), unid = celula(L, iUnid), qtd = celula(L, iQtd);
+      var dataSolic = brParaISO(iData == null ? '' : (L[iData] != null ? L[iData] : ''));
+      if (!artigo && !sku && !qtd) continue; // pula linhas vazias / de preenchimento
+      if (!nped && np) nped = np;
+      linhas.push({ sku: sku, artigo: artigo, unid: unid, cor: cor, dataSolic: dataSolic, qtd: qtd });
+    }
+    return { cliente: cli, numPedido: nped, linhas: linhas };
+  }
+
+  // Substitui TODOS os clientes da tela pela lista importada (com confirmação).
+  function aplicarClientes(lista) {
+    lista = (lista || []).filter(function (c) { return c.itens && c.itens.length; });
+    if (!lista.length) {
+      mostrarToast('Não encontrei itens no arquivo. Use um pedido exportado aqui.', 'warn');
+      return;
+    }
+    var nc = lista.length;
+    var aplicar = function () {
+      clientes = lista;
+      ativo = 0;
+      irPara(0, 0);
+      mostrarToast(nc > 1
+        ? (nc + ' clientes importados.')
+        : (lista[0].itens.length + ' item(ns) importado(s).'), 'ok');
+    };
+    if (totalItens()) {
+      abrirModal({
+        titulo: 'Substituir o que está na tela?',
+        mensagem: 'Importar vai substituir tudo que está aberto (' + totalItens() +
+          ' item(ns) em ' + clientes.length + ' cliente(s)) pelo conteúdo do arquivo.',
+        confirmar: 'Substituir',
+        cancelar: 'Cancelar',
+        perigo: true
+      }).then(function (ok) { if (ok) aplicar(); });
+    } else {
+      aplicar();
+    }
+  }
+
+  function importarArquivo(file) {
+    var nome = (file.name || '').toLowerCase();
+    if (nome.slice(-5) !== '.xlsx') {
+      mostrarToast('Formato não suportado. Use um arquivo .xlsx.', 'warn');
+      return;
+    }
+    if (typeof window.ExcelJS === 'undefined') {
+      mostrarToast('Sem conexão com a internet. Conecte-se para importar o Excel.', 'warn');
+      return;
+    }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var wb = new window.ExcelJS.Workbook();
+      wb.xlsx.load(fr.result).then(function () {
+        var lista = [];
+        // Cada aba = um cliente
+        wb.worksheets.forEach(function (ws) {
+          var matriz = [];
+          ws.eachRow({ includeEmpty: true }, function (rowObj) {
+            var arr = [];
+            for (var c = 1; c <= 7; c++) arr.push(celulaTexto(rowObj.getCell(c).value));
+            matriz.push(arr);
+          });
+          var d = matrizParaPedido(matriz);
+          if (d && d.linhas.length) {
+            lista.push({ nome: d.cliente || ws.name, numPedido: d.numPedido, itens: d.linhas });
+          }
+        });
+        if (!lista.length) { mostrarToast('Não encontrei pedidos no arquivo.', 'warn'); return; }
+        aplicarClientes(lista);
+      }).catch(function () { mostrarToast('Falha ao ler o Excel.', 'warn'); });
+    };
+    fr.onerror = function () { mostrarToast('Não consegui abrir o arquivo.', 'warn'); };
+    fr.readAsArrayBuffer(file);
+  }
+
+  importPedido.addEventListener('click', function () { importFile.click(); });
+  importFile.addEventListener('change', function () {
+    var f = importFile.files && importFile.files[0];
+    if (f) importarArquivo(f);
+    importFile.value = ''; // permite reimportar o mesmo arquivo
+  });
 
   // ===================== Toast =====================
   var toastTimer = null;

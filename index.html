@@ -16,8 +16,8 @@
   <!-- Ícones Lucide -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- ExcelJS — gera .xlsx estilizado (faixa amarela + grade) igual ao template.
-       Com fallback automático pra CSV se estiver offline. -->
+  <!-- ExcelJS — gera E lê .xlsx estilizado (faixa amarela + grade) igual ao template.
+       Vem por CDN: sem internet, exportar/importar Excel fica indisponível (o app avisa). -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 
   <!-- Banco de dados gerado (window.SKUS) -->
@@ -189,6 +189,10 @@
           <span class="order__total" id="orderTotal">0 itens</span>
         </div>
         <div class="order__exports">
+          <button type="button" id="importPedido" class="btn btn--ghost">
+            <i data-lucide="file-up" aria-hidden="true"></i> Importar Excel
+          </button>
+          <input type="file" id="importFile" accept=".xlsx" hidden />
           <button type="button" id="exportXlsx" class="btn btn--dark" disabled>
             <i data-lucide="file-spreadsheet" aria-hidden="true"></i> Exportar Excel
           </button>
@@ -213,6 +217,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/app.js?v=8f71b737"></script>
+  <script src="js/app.js?v=7a41395c"></script>
 </body>
 </html>

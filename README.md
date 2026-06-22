@@ -24,9 +24,9 @@ um pedido para exportar em **Excel (.xlsx)** no formato do template.
    - O Excel reproduz o template (faixa **CLIENTE** mesclada + cabeçalho), com a data no
      formato `dd/mm/aaaa`.
 
-> **Precisa de internet.** As fontes, os ícones e o gerador de Excel vêm por CDN. Sem
-> conexão, o app mostra um aviso ("Sem conexão com a internet…") e não exporta — basta
-> conectar e tentar de novo.
+> **Precisa de internet.** As fontes, os ícones e o leitor/gerador de Excel vêm por CDN.
+> Sem conexão, o app mostra um aviso ("Sem conexão com a internet…") e não exporta nem
+> importa — basta conectar e tentar de novo.
 
 ### Vários clientes num só Excel
 
@@ -39,6 +39,13 @@ aba por cliente** (nome da aba = cliente).
 Na própria tabela dá pra ajustar **Quantidade**, **Cor/Tamanho** e **Dt. Solic.** de cada
 linha, **remover** linhas e **adicionar** novas pela busca — tudo antes de exportar. Depois
 de exportado, a edição é feita no próprio Excel.
+
+### Reabrir um pedido (Importar Excel)
+
+Clique em **Importar Excel** (rodapé do pedido) e escolha um **`.xlsx`** exportado aqui
+(também aceita um arquivo editado à mão no Excel). Cliente, N° Pedido e todas as linhas
+voltam pra tela — e cada **aba** do arquivo vira um **cliente**. A importação **substitui**
+o que estiver aberto (o app pede confirmação antes). Só `.xlsx` (CSV não é mais usado).
 
 ---
 
@@ -75,7 +82,7 @@ O conversor:
 compras-itajai/
   index.html            # a página
   css/styles.css        # tema "etiqueta de chão de fábrica"
-  js/app.js             # busca, seleção, pedido e exportação
+  js/app.js             # busca, seleção, pedido, exportação e importação (.xlsx)
   data/sku-mp.csv       # CSV bruto do ERP (você coloca aqui)
   data/skus.js          # banco gerado (commitado)
   scripts/build-skus.mjs# conversor CSV -> skus.js
